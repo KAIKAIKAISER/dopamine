@@ -14,18 +14,23 @@ jobs:
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 22  # 这里改成了 22，以满足 >=22.12.0 的要求
+        node-version: 22
 
     - name: Install Dependencies
-      # 加上 --force 可以强制忽略一些非关键的依赖冲突，保证安装成功
       run: npm install --force
+
+    # [新增步骤] 自动修改配置文件，去掉证书要求
+    # 这一步会读取 electron-builder.config.js，把里面的 certificateSubjectName 改名，让打包工具读不到它
+    - name: Patch Config File (Disable Signing)
+      run: |
+        node -e "const fs = require('fs'); const p = 'electron-builder.config.js'; try { let s = fs.readFileSync(p, 'utf8'); s = s.replace('certificateSubjectName', 'certificateSubjectName_DISABLED'); fs.writeFileSync(p, s); console.log('Config patched successfully!'); } catch(e) { console.error('Patch failed:', e); }"
 
     - name: Build Angular App
       run: npm run build:prod
 
+    # [修改步骤] 这里的命令变短了，因为我们在上一步已经处理了证书问题
     - name: Package Electron App
-      # 继续使用跳过签名的参数
-      run: npx electron-builder build --windows --config electron-builder.config.js -c.win.verifyUpdateCodeSignature=false -c.win.certificateSubjectName=""
+      run: npx electron-builder build --windows --config electron-builder.config.js -c.win.verifyUpdateCodeSignature=false
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
