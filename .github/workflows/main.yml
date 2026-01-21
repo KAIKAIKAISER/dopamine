@@ -1,7 +1,7 @@
-name: Build Unsigned Windows Exe
+name: Build Dopamine Custom
 
 on:
-  workflow_dispatch: # 允许你手动点击按钮开始编译
+  workflow_dispatch:
 
 jobs:
   build:
@@ -19,17 +19,22 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    # 这里是关键：添加参数跳过签名验证，否则会报错
-    - name: Build Electron App
-      run: npm run build -- --win --x64 -c.win.certificateSubjectName="" -c.win.verifyUpdateCodeSignature=false
+    # 第一步：构建 Angular 前端代码 (这是之前缺少的一步)
+    - name: Build Angular App
+      run: npm run build:prod
+
+    # 第二步：打包成 exe (手动跳过签名验证)
+    # 我们直接调用 electron-builder，并强制覆盖配置里的签名设置
+    - name: Package Electron App
+      run: npx electron-builder build --windows --config electron-builder.config.js -c.win.verifyUpdateCodeSignature=false -c.win.certificateSubjectName=""
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    # 上传生成的文件
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Dopamine-Fixed-Version
-        path: dist/*.exe 
-        # 如果编译后没找到文件，可能是在 release 文件夹，你可以把上面这行改成 path: |
-        #   dist/*.exe
-        #   release/*.exe
+        name: Dopamine-Custom-Build
+        path: |
+          dist/*.exe
+          release/*.exe
