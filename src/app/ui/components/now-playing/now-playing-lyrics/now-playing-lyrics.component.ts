@@ -11,7 +11,7 @@ import { StringUtils } from '../../../../common/utils/string-utils';
 import { PlaybackInformationService } from '../../../../services/playback-information/playback-information.service';
 import { SettingsBase } from '../../../../common/settings/settings.base';
 
-// [新增] 1. 定义歌词行接口
+// [新增] 定义歌词行接口
 interface LyricLine {
     time: number;
     text: string;
@@ -30,7 +30,7 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
     private previousTrackPath: string = '';
     private _isBusy: boolean = false;
 
-    // [新增] 2. 添加滚动歌词所需的变量
+    // [新增] 滚动歌词变量
     public parsedLyrics: LyricLine[] = [];
     public currentLineIndex: number = -1;
 
@@ -50,10 +50,12 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
         public settings: SettingsBase
     ) {}
 
-    public async ngOnInit(): Promise<void> {
+    public ngOnInit(): void {
         this.initializeSubscriptions();
-        
-        // 初始化时获取一次当前的播放信息
+        PromiseUtils.noAwait(this.loadInitialLyrics());
+    }
+
+    private async loadInitialLyrics(): Promise<void> {
         const currentPlaybackInformation: PlaybackInformation = await this.playbackInformationService.getCurrentPlaybackInformationAsync();
         if (currentPlaybackInformation && currentPlaybackInformation.track) {
             await this.showLyricsAsync(currentPlaybackInformation.track);
@@ -65,32 +67,27 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
     }
 
     private initializeSubscriptions(): void {
-        // 监听下一首
         this.subscription.add(
             this.playbackInformationService.playingNextTrack$.subscribe((playbackInformation: PlaybackInformation) => {
                 PromiseUtils.noAwait(this.showLyricsAsync(playbackInformation.track));
             })
         );
 
-        // 监听上一首
         this.subscription.add(
             this.playbackInformationService.playingPreviousTrack$.subscribe((playbackInformation: PlaybackInformation) => {
                 PromiseUtils.noAwait(this.showLyricsAsync(playbackInformation.track));
             })
         );
 
-        // 监听无音乐
         this.subscription.add(
             this.playbackInformationService.playingNoTrack$.subscribe((playbackInformation: PlaybackInformation) => {
                 PromiseUtils.noAwait(this.showLyricsAsync(playbackInformation.track));
             })
         );
 
-        // [新增] 3. 监听播放时间更新，用于同步歌词滚动
-        // 注意：这里假设 playbackInformation$ 包含 currentTime 更新。
-        // 如果这里不触发，可能需要检查 PlaybackInformationService 里是否有专门的 timeUpdate 流
+        // [修正] 这里的变量名改成了 playbackUpdatesStream$
         this.subscription.add(
-            this.playbackInformationService.playbackInformation$.subscribe((info) => {
+            this.playbackInformationService.playbackUpdatesStream$.subscribe((info) => {
                 if (info && info.currentTime !== undefined) {
                     this.syncLyrics(info.currentTime);
                 }
@@ -105,7 +102,7 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
     private async showLyricsAsync(track: TrackModel | undefined): Promise<void> {
         if (track === undefined) {
             this._lyrics = undefined;
-            this.parsedLyrics = []; // 清空滚动歌词
+            this.parsedLyrics = [];
             return;
         }
 
@@ -119,7 +116,7 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
 
         this.previousTrackPath = track.path;
 
-        // [新增] 4. 获取到新歌词后，立即解析
+        // [新增] 解析歌词
         if (this._lyrics && this._lyrics.text) {
             this.parseLrc(this._lyrics.text);
         } else {
@@ -128,7 +125,7 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
     }
 
     // ---------------------------------------------------------
-    // [新增] 5. 核心辅助方法：解析与同步
+    // [新增] 核心辅助方法
     // ---------------------------------------------------------
 
     private parseLrc(lrcText: string): void {
@@ -137,7 +134,6 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
 
         if (!lrcText) return;
 
-        // 正则匹配 [00:00.00] 或 [00:00.000]
         const regex = /^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$/;
         const lines = lrcText.split('\n');
 
@@ -150,7 +146,6 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
                 const time = minutes * 60 + seconds + milliseconds / 1000;
                 const text = match[4].trim();
 
-                // 只有文本存在时才添加
                 if (text) {
                     this.parsedLyrics.push({ time, text });
                 }
@@ -161,10 +156,7 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
     private syncLyrics(currentTime: number): void {
         if (this.parsedLyrics.length === 0) return;
 
-        // 找到第一个时间大于当前时间的行
         const nextIndex = this.parsedLyrics.findIndex(line => line.time > currentTime);
-
-        // 当前行应该是 nextIndex 的前一行
         let activeIndex = (nextIndex === -1) ? this.parsedLyrics.length - 1 : nextIndex - 1;
 
         if (activeIndex < 0) activeIndex = 0;
@@ -176,7 +168,6 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
     }
 
     private scrollToActiveLine(): void {
-        // 这里的 ID 要对应 HTML 里的 id="lyric-line-{{i}}"
         const element = document.getElementById(`lyric-line-${this.currentLineIndex}`);
         if (element) {
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
