@@ -1,17 +1,15 @@
 <div class="lyrics-container">
-  <!-- 情况1: 如果解析出了滚动歌词，显示滚动列表 -->
-  <ul *ngIf="parsedLyrics.length > 0" class="scrolling-lyrics">
-    <li *ngFor="let line of parsedLyrics; let i = index"
-        [id]="'lyric-line-' + i"
-        [class.active]="i === currentLineIndex"
-        (click)="seekTo(line.time)"> <!-- 可选：点击歌词跳转 -->
-      {{ line.text }}
-    </li>
-  </ul>
+    <!-- 滚动歌词模式 -->
+    <ul *ngIf="parsedLyrics.length > 0" class="scrolling-lyrics">
+        <li *ngFor="let line of parsedLyrics; let i = index" 
+            [id]="'lyric-line-' + i" 
+            [class.active]="i === currentLineIndex">
+            {{ line.text }}
+        </li>
+    </ul>
 
-  <!-- 情况2: 如果没有时间戳（普通文本），显示原文 -->
-  <div *ngIf="parsedLyrics.length === 0" class="static-lyrics">
-    <!-- 这里用原来的显示方式，可能是 _lyrics.text -->
-    <p style="white-space: pre-wrap;">{{ _lyrics?.text || 'No lyrics found' }}</p>
-  </div>
+    <!-- 降级模式：普通文本 -->
+    <div *ngIf="parsedLyrics.length === 0" class="static-lyrics">
+        <p style="white-space: pre-wrap;">{{ _lyrics?.text }}</p>
+    </div>
 </div>
