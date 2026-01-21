@@ -1,5 +1,57 @@
 @import 'colors';
 
+.lyrics-container {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto; /* 允许滚动 */
+  overflow-x: hidden;
+  text-align: center;
+  position: relative;
+  
+  /* 隐藏滚动条但保留功能 (Chrome/Edge) */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrolling-lyrics {
+  list-style: none;
+  padding: 50% 0; /* 上下留白，确保第一句和最后一句能滚到中间 */
+  margin: 0;
+  transition: transform 0.3s ease-out;
+
+  li {
+    padding: 12px 20px;
+    font-size: 16px; /* 根据需要调整字体大小 */
+    color: rgba(255, 255, 255, 0.4); /* 未激活歌词颜色（灰色） */
+    transition: all 0.3s ease;
+    cursor: pointer;
+    line-height: 1.5;
+
+    &.active {
+      color: #ffffff; /* 激活歌词颜色（亮白） */
+      font-weight: bold;
+      font-size: 20px; /* 激活时放大 */
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+      transform: scale(1.05);
+    }
+
+    &:hover:not(.active) {
+      color: rgba(255, 255, 255, 0.7);
+    }
+  }
+}
+
+.static-lyrics {
+  padding: 40px;
+  text-align: center;
+  font-size: 16px;
+  line-height: 2;
+  color: #ddd;
+}
+
 .app-now-playing-lyrics {
     padding: 120px;
     display: flex;
@@ -7,6 +59,7 @@
     height: 100%;
     width: 100%;
 }
+
 
 .app-now-playing-lyrics__picture {
     box-shadow:
