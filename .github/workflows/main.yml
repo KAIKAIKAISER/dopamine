@@ -14,23 +14,21 @@ jobs:
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 22  # 这里改成了 22，以满足 >=22.12.0 的要求
 
     - name: Install Dependencies
-      run: npm install
+      # 加上 --force 可以强制忽略一些非关键的依赖冲突，保证安装成功
+      run: npm install --force
 
-    # 第一步：构建 Angular 前端代码 (这是之前缺少的一步)
     - name: Build Angular App
       run: npm run build:prod
 
-    # 第二步：打包成 exe (手动跳过签名验证)
-    # 我们直接调用 electron-builder，并强制覆盖配置里的签名设置
     - name: Package Electron App
+      # 继续使用跳过签名的参数
       run: npx electron-builder build --windows --config electron-builder.config.js -c.win.verifyUpdateCodeSignature=false -c.win.certificateSubjectName=""
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    # 上传生成的文件
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
