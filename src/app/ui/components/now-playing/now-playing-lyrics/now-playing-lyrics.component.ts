@@ -11,7 +11,6 @@ import { StringUtils } from '../../../../common/utils/string-utils';
 import { PlaybackInformationService } from '../../../../services/playback-information/playback-information.service';
 import { SettingsBase } from '../../../../common/settings/settings.base';
 
-// [新增] 定义歌词行接口
 interface LyricLine {
     time: number;
     text: string;
@@ -30,9 +29,12 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
     private previousTrackPath: string = '';
     private _isBusy: boolean = false;
 
-    // [新增] 滚动歌词变量
+    // 滚动歌词变量
     public parsedLyrics: LyricLine[] = [];
     public currentLineIndex: number = -1;
+    
+    // [新增] 定时器变量，用于替代找不到的 Observable
+    private syncInterval: any = null;
 
     public lyricsSourceTypeEnum: typeof LyricsSourceType = LyricsSourceType;
 
@@ -53,6 +55,9 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
     public ngOnInit(): void {
         this.initializeSubscriptions();
         PromiseUtils.noAwait(this.loadInitialLyrics());
+        
+        // [重点修改] 启动定时同步
+        this.startLyricsSync();
     }
 
     private async loadInitialLyrics(): Promise<void> {
@@ -64,6 +69,28 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
 
     public ngOnDestroy(): void {
         this.destroySubscriptions();
+        // [重点修改] 销毁定时器
+        this.stopLyricsSync();
+    }
+
+    // [新增] 启动定时器：每 250ms (一秒4次) 主动去问一下当前时间
+    private startLyricsSync(): void {
+        this.stopLyricsSync(); // 防止重复启动
+        this.syncInterval = setInterval(async () => {
+            // 这里调用的是已知的、肯定存在的异步方法
+            const info = await this.playbackInformationService.getCurrentPlaybackInformationAsync();
+            if (info && info.currentTime !== undefined) {
+                this.syncLyrics(info.currentTime);
+            }
+        }, 250); 
+    }
+
+    // [新增] 停止定时器
+    private stopLyricsSync(): void {
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
+            this.syncInterval = null;
+        }
     }
 
     private initializeSubscriptions(): void {
@@ -85,14 +112,7 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
             })
         );
 
-        // [修正] 这里的变量名改成了 playbackUpdatesStream$
-        this.subscription.add(
-            this.playbackInformationService.playbackUpdatesStream$.subscribe((info) => {
-                if (info && info.currentTime !== undefined) {
-                    this.syncLyrics(info.currentTime);
-                }
-            })
-        );
+        // [删除] 既然找不到那个流，我们就不订阅了，改用上面的 setInterval 方案
     }
 
     private destroySubscriptions(): void {
@@ -116,17 +136,12 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
 
         this.previousTrackPath = track.path;
 
-        // [新增] 解析歌词
         if (this._lyrics && this._lyrics.text) {
             this.parseLrc(this._lyrics.text);
         } else {
             this.parsedLyrics = [];
         }
     }
-
-    // ---------------------------------------------------------
-    // [新增] 核心辅助方法
-    // ---------------------------------------------------------
 
     private parseLrc(lrcText: string): void {
         this.parsedLyrics = [];
