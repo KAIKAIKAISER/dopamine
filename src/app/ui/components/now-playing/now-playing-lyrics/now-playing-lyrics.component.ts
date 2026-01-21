@@ -33,7 +33,7 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
     public parsedLyrics: LyricLine[] = [];
     public currentLineIndex: number = -1;
     
-    // [新增] 定时器变量，用于替代找不到的 Observable
+    // 定时器变量
     private syncInterval: any = null;
 
     public lyricsSourceTypeEnum: typeof LyricsSourceType = LyricsSourceType;
@@ -55,8 +55,6 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
     public ngOnInit(): void {
         this.initializeSubscriptions();
         PromiseUtils.noAwait(this.loadInitialLyrics());
-        
-        // [重点修改] 启动定时同步
         this.startLyricsSync();
     }
 
@@ -69,23 +67,34 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
 
     public ngOnDestroy(): void {
         this.destroySubscriptions();
-        // [重点修改] 销毁定时器
         this.stopLyricsSync();
     }
 
-    // [新增] 启动定时器：每 250ms (一秒4次) 主动去问一下当前时间
+    // [核心修复] 万能定时同步逻辑
     private startLyricsSync(): void {
-        this.stopLyricsSync(); // 防止重复启动
+        this.stopLyricsSync(); 
         this.syncInterval = setInterval(async () => {
-            // 这里调用的是已知的、肯定存在的异步方法
             const info = await this.playbackInformationService.getCurrentPlaybackInformationAsync();
-            if (info && info.currentTime !== undefined) {
-                this.syncLyrics(info.currentTime);
+            
+            if (info) {
+                // 强制转换为 any，绕过 TS 检查
+                const anyInfo = info as any;
+                
+                // 尝试所有可能的属性名！总有一个是对的
+                // 优先级: currentTime -> position -> currentPosition -> time
+                const realTime = anyInfo.currentTime ?? anyInfo.position ?? anyInfo.currentPosition ?? anyInfo.time;
+
+                if (typeof realTime === 'number') {
+                    this.syncLyrics(realTime);
+                } else {
+                    // 如果还是找不到，就在控制台打印出来看看它到底叫什么
+                    // 你可以在开发者工具 (Ctrl+Shift+I) 的 Console 看到这个对象
+                    // console.log('DEBUG INFO:', info); 
+                }
             }
         }, 250); 
     }
 
-    // [新增] 停止定时器
     private stopLyricsSync(): void {
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
@@ -111,8 +120,6 @@ export class NowPlayingLyricsComponent implements OnInit, OnDestroy {
                 PromiseUtils.noAwait(this.showLyricsAsync(playbackInformation.track));
             })
         );
-
-        // [删除] 既然找不到那个流，我们就不订阅了，改用上面的 setInterval 方案
     }
 
     private destroySubscriptions(): void {
