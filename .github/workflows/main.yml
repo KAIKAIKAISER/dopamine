@@ -19,18 +19,19 @@ jobs:
     - name: Install Dependencies
       run: npm install --force
 
-    # [新增步骤] 自动修改配置文件，去掉证书要求
-    # 这一步会读取 electron-builder.config.js，把里面的 certificateSubjectName 改名，让打包工具读不到它
+    # [核心修改] 暴力修改配置文件
+    # 1. 搞坏证书名，让它找不到证书。
+    # 2. 强行在 win: { ... } 里插入 verifyUpdateCodeSignature: false
     - name: Patch Config File (Disable Signing)
       run: |
-        node -e "const fs = require('fs'); const p = 'electron-builder.config.js'; try { let s = fs.readFileSync(p, 'utf8'); s = s.replace('certificateSubjectName', 'certificateSubjectName_DISABLED'); fs.writeFileSync(p, s); console.log('Config patched successfully!'); } catch(e) { console.error('Patch failed:', e); }"
+        node -e "const fs = require('fs'); const p = 'electron-builder.config.js'; try { let s = fs.readFileSync(p, 'utf8'); s = s.replace('certificateSubjectName', 'certificateSubjectName_DISABLED'); s = s.replace('win: {', 'win: { verifyUpdateCodeSignature: false, '); fs.writeFileSync(p, s); console.log('Config patched successfully!'); } catch(e) { console.error('Patch failed:', e); process.exit(1); }"
 
     - name: Build Angular App
       run: npm run build:prod
 
-    # [修改步骤] 这里的命令变短了，因为我们在上一步已经处理了证书问题
+    # [修改] 现在命令非常干净，没有 -c 参数了，不会再报错
     - name: Package Electron App
-      run: npx electron-builder build --windows --config electron-builder.config.js -c.win.verifyUpdateCodeSignature=false
+      run: npx electron-builder build --windows --config electron-builder.config.js
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
