@@ -419,11 +419,22 @@ try {
 
             if (mainWindow) {
                 // Someone tried to run a second instance, we should focus the existing window.
-                if (mainWindow.isMinimized()) {
-                    mainWindow.restore();
-                }
+                if (mainWindow) {
+            // Someone tried to run a second instance, we should focus the existing window.
+            
+            // 1. 如果是普通最小化，恢复它
+            if (mainWindow.isMinimized()) {
+                mainWindow.restore();
+            }
 
-                mainWindow.focus();
+            // 2. [核心修复] 如果窗口不可见（在托盘里），让它显示出来
+            if (!mainWindow.isVisible()) {
+                mainWindow.show();
+            }
+
+            // 3. 聚焦窗口
+            mainWindow.focus();
+        }
             }
         });
 
