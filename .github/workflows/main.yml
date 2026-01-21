@@ -1,0 +1,35 @@
+name: Build Unsigned Windows Exe
+
+on:
+  workflow_dispatch: # 允许你手动点击按钮开始编译
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Check out Git repository
+      uses: actions/checkout@v4
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Install Dependencies
+      run: npm install
+
+    # 这里是关键：添加参数跳过签名验证，否则会报错
+    - name: Build Electron App
+      run: npm run build -- --win --x64 -c.win.certificateSubjectName="" -c.win.verifyUpdateCodeSignature=false
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Dopamine-Fixed-Version
+        path: dist/*.exe 
+        # 如果编译后没找到文件，可能是在 release 文件夹，你可以把上面这行改成 path: |
+        #   dist/*.exe
+        #   release/*.exe
